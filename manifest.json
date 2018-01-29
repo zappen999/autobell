@@ -1,0 +1,28 @@
+{
+  "manifest_version": 2,
+  "name": "Autobell",
+  "version": "0.1.0",
+  "description": "Automagically get notifications when subscribing",
+  "browser_action": {
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "24": "icons/icon-24.png",
+      "32": "icons/icon-32.png"
+    }
+  },
+  "permissions": [
+    "activeTab"
+  ],
+  "content_scripts": [
+    {
+      "run_at": "document_idle",
+      "matches": [
+        "https://www.youtube.com/user/*",
+        "https://www.youtube.com/channel/*",
+        "https://www.youtube.com/watch*"
+      ],
+      "js": [ "main.js" ]
+    }
+  ],
+  "content_security_policy": "script-src 'self' https://ssl.google-analytics.com; object-src 'self'"
+}
