@@ -1,0 +1,7 @@
+#!/bin/bash
+mkdir -p dist
+
+NAME=$(node -e "console.log(require('./manifest.json').name)")
+VERSION=$(node -e "console.log(require('./manifest.json').version)")
+
+zip -x *.git* -x *.swp* -x dist/ -x pack -r "dist/${NAME}-${VERSION}.zip" .
