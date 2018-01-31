@@ -1,19 +1,31 @@
 var PROJECT_NAME = 'Autobell';
-var DEBUG = false;
+var DEBUG = true;
 var SUBSCRIBE_BTN_SELECTOR = '#subscribe-button paper-button';
-var NOTIFY_BTN_SELECTOR = '#notification-button #button';
+var NOTIFY_BTN_SELECTOR = '#notification-button yt-icon-button';
 
-// XXX: do not do this at home kids
-function onWatchPageReady() {
-  return new Promise(function(resolve) {
-    var interval = setInterval(function() {
-      var subBtn = document.querySelector(SUBSCRIBE_BTN_SELECTOR);
-      if (subBtn) {
-        clearInterval(interval);
-        return resolve(subBtn);
-      }
-    }, 30);
-  });
+function trackSubButton(callback) {
+  let prevUrl = window.location.href, first = true;
+
+  // XXX: please do not do like this. ever.
+  setInterval(function() {
+    let currUrl = window.location.href;
+    const isNewPage = currUrl !== prevUrl;
+
+    // we must have a new page, a valid page, or first timer to continue
+    if (!((isNewPage && /\/(watch|channel|user)/.test(currUrl)) || first)) {
+      return;
+    }
+
+    log('Valid subscribe URL detected', 'debug');
+
+    const subBtns = document.querySelectorAll(SUBSCRIBE_BTN_SELECTOR);
+
+    if (subBtns.length > 0) {
+      first = false;
+      prevUrl = currUrl;
+      callback(subBtns[subBtns.length - 1]);
+    }
+  }, 100);
 }
 
 function log(msg, level = 'log') {
@@ -50,19 +62,64 @@ function onSubscribeClick(subBtn, cb) {
   return observer;
 }
 
-(async function() {
-  log('Loaded!', 'debug');
+function isParentChainVisible(el) {
+  let curEl = el;
 
-  // wait for the page to load fully
-  var subBtn = await onWatchPageReady();
-  var notifyBtn = document.querySelector(NOTIFY_BTN_SELECTOR);
+  while (curEl.parentNode) {
+    if (curEl.hasAttribute('hidden')) {
+      return false;
+    }
 
-  var subscribeObserver = onSubscribeClick(subBtn, function(isSubscribing) {
+    curEl = curEl.parentNode;
+  }
+
+  return true;
+}
+
+log('Init', 'debug');
+
+let subBtnEl, subObserver;
+
+trackSubButton(el => {
+  subBtnEl = el;
+
+  if (subObserver) {
+    log('Disconnecting observer', 'debug');
+    subObserver.disconnect();
+  }
+
+  log('Registering observer', 'debug');
+  subObserver = onSubscribeClick(subBtnEl, isSubscribing => {
     log(isSubscribing ? 'Subscribing' : 'Unsubscribing', 'debug');
 
-    if (isSubscribing && !isNotificationsEnabled(notifyBtn)) {
-      log('Enabling notifications', 'debug');
-      notifyBtn.click();
+    if (!isSubscribing) {
+      return;
     }
+
+    const notifyBtns = Array.from(document.querySelectorAll(NOTIFY_BTN_SELECTOR));
+
+    if (notifyBtns.length === 0) {
+      log('Could not find any notification buttons', 'error');
+      return;
+    }
+
+    // find the first notification button that has no hidden parent
+    const candidates = notifyBtns
+      .filter(candidate => isParentChainVisible(candidate));
+
+    if (candidates.length !== 1) {
+      log(`Found invalid number of notification button candidates ${candidates.length}`, 'error');
+      return;
+    }
+
+    const notifyBtn = candidates[0];
+
+    if (!isNotificationsEnabled(notifyBtn)) {
+      log('ENABLING NOTIFICATIONS', 'debug');
+      notifyBtn.click();
+      return;
+    }
+
+    log('Notifications already turned on, doing nothing', 'debug');
   });
-})();
+});
